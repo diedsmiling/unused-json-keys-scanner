@@ -17,7 +17,7 @@ func parseArgs() (string, error) {
 }
 
 func (d dir) scan() bool {
-	fmt.Printf("Scan %s", d.name)
+	fmt.Printf("Scaning directory  %s", d.name)
 	return true
 }
 
@@ -29,6 +29,4 @@ func main() {
 	}
 	var rootDir = dir{name: directory}
 	rootDir.scan()
-
-
 }
