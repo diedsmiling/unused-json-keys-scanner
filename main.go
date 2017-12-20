@@ -8,9 +8,6 @@ import (
 	"os"
 )
 
-type KeysStorage struct {
-	Keys []string
-}
 
 var keysSlice []string
 
@@ -24,9 +21,6 @@ func parseArgs() (string, error) {
 }
 
 func main() {
-
-
-
 	directory, err := parseArgs()
 	if err != nil {
 		fmt.Println("Error:", err)
