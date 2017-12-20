@@ -2,10 +2,17 @@ package main
 
 import (
 	"flag"
-	"os"
 	"errors"
 	"fmt"
+	"path/filepath"
+	"os"
 )
+
+type KeysStorage struct {
+	Keys []string
+}
+
+var keysSlice []string
 
 func parseArgs() (string, error) {
 	dir := flag.String("dir", "", "Path to directory that should be scanned")
@@ -16,17 +23,18 @@ func parseArgs() (string, error) {
 	return *dir, nil
 }
 
-func (d dir) scan() bool {
-	fmt.Printf("Scaning directory  %s", d.name)
-	return true
-}
-
 func main() {
+
+
+
 	directory, err := parseArgs()
 	if err != nil {
 		fmt.Println("Error:", err)
 		os.Exit(1)
 	}
-	var rootDir = dir{name: directory}
-	rootDir.scan()
+	err2 := filepath.Walk(directory, visit)
+
+	fmt.Printf("len=%d cap=%d %v\n", len(keysSlice), cap(keysSlice), keysSlice)
+
+	fmt.Printf("filepath.Walk() returned %v\n", err2)
 }
