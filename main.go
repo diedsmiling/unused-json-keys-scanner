@@ -9,7 +9,7 @@ import (
 	"os"
 	"io/ioutil"
 	"encoding/json"
-	"github.com/tidwall/gjson"
+	"github.com/buger/jsonparser"
 	"bytes"
 	"log"
 )
@@ -48,8 +48,7 @@ func collectJsons(path string, f os.FileInfo, err error) error {
 	failOnError(err, "Could not parse")
 	isJ := isJson(body)
 	if isJ {
-		result := gjson.Parse(string(body))
-		gatherKeys("", path, result)
+		gatherKeys("", path, body)
 	}
 	return nil
 }
@@ -65,25 +64,24 @@ func scan(path string, f os.FileInfo, err error) error {
 }
 
 
-func gatherKeys(parentKey string, path string, json gjson.Result)  {
-	json.ForEach(func(key, value gjson.Result) bool {
+func gatherKeys(parentKey string, path string, json []byte)  {
+	jsonparser.ObjectEach(json, func(key []byte, value []byte, dataType jsonparser.ValueType, offset int) error {
 		var newKey Key
-		if value.Type == gjson.JSON {
+		if dataType == jsonparser.Object {
 			if parentKey != "" {
-				gatherKeys(concatTwoStrings(parentKey, key.String()), path, value)
+				gatherKeys(concatTwoStrings(parentKey, string(key)), path, value)
 			} else {
-				gatherKeys(key.String(), path, value)
+				gatherKeys(string(key), path, value)
 			}
-
 		} else {
 			if parentKey != "" {
-				newKey = Key{Key: concatTwoStrings(parentKey, key.String()), File: path, Used: false}
+				newKey = Key{Key: concatTwoStrings(parentKey, string(key)), File: path, Used: false}
 			} else {
-				newKey = Key{Key: key.String(), File: path, Used: false}
+				newKey = Key{Key: string(key), File: path, Used: false}
 			}
 			keysSlice = append(keysSlice, newKey)
 		}
-		return true
+		return nil
 	})
 }
 
@@ -138,9 +136,11 @@ func main() {
     for _, element := range keysSlice {
 		fmt.Printf("Used key %v in file: %w\n", element.Key, element.File)
 	}
+
 	if toDelete {
-		fmt.Printf("Deleting ", len(keysSlice))
+		fmt.Printf("Deleting ")
 	}
+
 	fmt.Printf("length ", len(keysSlice))
 
 	failOnError(err3, "Could not parse args")
