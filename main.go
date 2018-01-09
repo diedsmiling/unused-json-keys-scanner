@@ -9,7 +9,8 @@ import (
 	"os"
 	"io/ioutil"
 	"encoding/json"
-	"github.com/buger/jsonparser"
+	"github.com/diedsmiling/jsonparser"
+	"github.com/fatih/color"
 	"bytes"
 	"log"
 )
@@ -120,28 +121,71 @@ func Filter(vs []Key, f func(Key) bool) []Key {
 	return vsf
 }
 
+func cleanAscenders(key []string, json []byte) []byte {
+	parentPath := key[:len(key)-1]
+	parentObject, dataType, _, err := jsonparser.Get(json, parentPath...)
+	failOnError(err, "Could not parse")
+
+	// parent object must be deleted if it is empty
+	var i int
+	if dataType == jsonparser.Object {
+		jsonparser.ObjectEach(parentObject, func(key []byte, value []byte, dataType jsonparser.ValueType, offset int) error {
+			i++
+			return nil
+		})
+	}
+
+	if i == 0 {
+		json = jsonparser.Delete(json, parentPath...)
+		json = cleanAscenders(parentPath, json)
+	}
+	return json
+}
+
 func main() {
+	red := color.New(color.FgRed).SprintFunc()
+
+	yellow := color.New(color.FgYellow).SprintFunc()
+
+	fmt.Println("Looking for unused keys ... ")
+	fmt.Println("===============================================")
 	directory, toDelete, err := parseArgs()
 	failOnError(err, "Could not parse args")
 
 	err2 := filepath.Walk(directory, collectJsons)
 	failOnError(err2, "Could not parse args")
-	fmt.Printf("len=%d cap=%d %v\n", len(keysSlice), cap(keysSlice), keysSlice)
 
 	err3 := filepath.Walk(directory, scan)
+	failOnError(err3, "Could not parse args")
+
 	keysSlice = Filter(keysSlice, func(v Key) bool {
+		if (!v.Used) {
+			fmt.Printf("Unused key: %v in file: %v \n", yellow(v.Key), yellow(v.File))
+		}
 		return !v.Used
 	})
 
-    for _, element := range keysSlice {
-		fmt.Printf("Used key %v in file: %w\n", element.Key, element.File)
-	}
-
 	if toDelete {
-		fmt.Printf("Deleting ")
+		// delete all unused keys
+		for _, element := range keysSlice {
+			body, err := ioutil.ReadFile(element.File)
+			failOnError(err, "Could not parse")
+
+			splittedKey := strings.Split(element.Key, ".")
+
+			body = jsonparser.Delete(body, splittedKey...)
+			purgedJson := cleanAscenders(splittedKey, body)
+
+			ioutil.WriteFile(element.File, purgedJson, 0x644);
+			fmt.Println("Deleting key %v in file: %d \n", element.Key, element.File)
+		}
 	}
 
-	fmt.Printf("length ", len(keysSlice))
-
-	failOnError(err3, "Could not parse args")
+	fmt.Println("===============================================")
+	if len(keysSlice) != 0 {
+		fmt.Printf("%v Nr of unused keys found: %v \n", red("WARNING!!!"), red(len(keysSlice)))
+		os.Exit(1)
+	} else {
+		color.Green("No unused keys found")
+	}
 }
